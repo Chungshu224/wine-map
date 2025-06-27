@@ -14,7 +14,7 @@
 ## 安裝與使用
 
 1. 下載或 clone 此專案
- https://github.com/Chungshu224/wine-map/
+ https://github.com/Chungshu224/wine-map/index.html
  
 2. 開啟 `index.html`（或主頁面）於瀏覽器
 3. 開始探索葡萄酒世界！
