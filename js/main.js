@@ -15,7 +15,7 @@ const map = new mapboxgl.Map({
 // 步驟 3: 當地圖完全載入後，添加 GeoJSON 數據和圖層
 map.on('load', () => {
     // 載入 GeoJSON 數據
-    fetch('./data/bordeaux.geojson') // 確保路徑正確指向您儲存的 GeoJSON 檔案
+    fetch('./data/Bordeaux.geojson') // 確保路徑正確指向您儲存的 GeoJSON 檔案
         .then(response => response.json())
         .then(data => {
             // 將 GeoJSON 數據添加到 Mapbox 的數據源中
