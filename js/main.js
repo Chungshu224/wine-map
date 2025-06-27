@@ -6,10 +6,21 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21jZG55ZXQ5MDJwbDJrc
 
 // 步驟 2: 初始化 Mapbox 地圖
 const map = new mapboxgl.Map({
-    container: 'map', // 地圖容器的 div ID (對應 index.html 中的 <div id="map">)
-    style: 'mapbox://styles/mapbox/light-v10', // 您可以選擇其他 Mapbox 樣式，例如 'mapbox://styles/mapbox/streets-v11'
-    center: [0.00, 44.80], // 波爾多大致的經緯度 [經度, 緯度]
-    zoom: 8.5 // 初始縮放級別，讓波爾多能清晰顯示
+    container: 'map',
+    style: 'mapbox://styles/mapbox/satellite-v9',
+    center: [0.00, 44.80],
+    zoom: 8.5
+});
+
+// 添加縮放和羅盤控制按鈕
+map.addControl(new mapboxgl.NavigationControl(), 'top-left'); // 'top-left' 可以是 'top-right', 'bottom-left', 'bottom-right'
+// map.addControl(new mapboxgl.GeolocateControl({
+//     positionOptions: {
+//         enableHighAccuracy: true
+//     },
+//     trackUserLocation: true,
+//     showUserHeading: true
+// }), 'top-right'); // 如果需要顯示使用者目前位置
 });
 
 // 步驟 3: 當地圖完全載入後，添加 GeoJSON 數據和圖層
