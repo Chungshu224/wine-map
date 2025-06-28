@@ -6,9 +6,26 @@
     <title>波爾多葡萄酒地圖</title>
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet">
     <link rel="stylesheet" href="css/style.css">
-    <style>
+     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        /* 為彈出視窗內容增加一些基本樣式，讓圖片和影片能適應大小 */
+        .mapboxgl-popup-content img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .mapboxgl-popup-content h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+            color: #880808;
+        }
+        .mapboxgl-popup-content p {
+            margin-bottom: 5px;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
