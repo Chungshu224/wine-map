@@ -67,7 +67,7 @@ map.on('load', () => {
                 'source': 'bordeaux-wine-region',
                 'paint': {
                     'fill-color': '#880808',
-                    'fill-opacity': 0.7,
+                    'fill-opacity': 0.1,
                     'fill-outline-color': '#FFFFFF'
                 }
             });
@@ -77,7 +77,7 @@ map.on('load', () => {
                 'source': 'bordeaux-wine-region',
                 'paint': {
                     'line-color': '#FFFFFF',
-                    'line-width': 2
+                    'line-width': 0.5
                 }
             });
             console.log('波爾多 GeoJSON 數據和圖層已成功載入！');
