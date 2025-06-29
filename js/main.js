@@ -12,7 +12,7 @@ const GOOGLE_SHEET_RANGE = 'Sheet1!A:J'; // 根據您的工作表名稱和資料
 // 您可以在這裡添加或刪除子產區
 const subRegionsConfig = [
     { id: 'Pauillac-AOP_Bordeaux_France', path: './data/Pauillac-AOP_Bordeaux_France.geojson', name: 'Pauillac' },
-    { id: 'margaux', path: './data/margaux.geojson', name: 'Margaux' },
+    { id: 'Barsac-AOP_Bordeaux_France', path: './data/Barsac-AOP_Bordeaux_France.geojson', name: 'Barsac' },
     { id: 'saint_emilion', path: './data/saint_emilion.geojson', name: 'Saint-Émilion' },
     // 根據您準備的 GeoJSON 檔案添加更多子產區
     // { id: 'some_other_subregion', path: './data/some_other_subregion.geojson', name: '另一個子產區' },
