@@ -64,7 +64,7 @@ map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
 // 步驟 3: 當地圖完全載入後，添加 GeoJSON 數據和圖層
 map.on('load', () => {
-    fetch('./data/Bordeaux.geojson')
+    fetch('./data/bordeaux_main.geojson')
         .then(response => response.json())
         .then(data => {
             map.addSource('bordeaux-wine-region', {
