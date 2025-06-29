@@ -74,7 +74,7 @@ map.on('load', () => {
             map.addLayer({
                 'id': 'bordeaux-fill',
                 'type': 'fill',
-                'source': 'bordeaux_main-region',
+                'source': 'bordeaux-main-region',
                 'paint': {
                     'fill-color': '#880808',
                     'fill-opacity': 0.1,
@@ -84,7 +84,7 @@ map.on('load', () => {
             map.addLayer({
                 'id': 'bordeaux-border',
                 'type': 'line',
-                'source': 'bordeaux_main-region',
+                'source': 'bordeaux-main-region',
                 'paint': {
                     'line-color': '#FFFFFF',
                     'line-width': 0.5
