@@ -74,7 +74,7 @@ map.on('load', () => {
             map.addLayer({
                 'id': 'bordeaux-fill',
                 'type': 'fill',
-                'source': 'bordeaux-main-region',
+                'source': 'bordeaux_main.geojson',
                 'paint': {
                     'fill-color': '#880808',
                     'fill-opacity': 0.1,
@@ -84,7 +84,7 @@ map.on('load', () => {
             map.addLayer({
                 'id': 'bordeaux-border',
                 'type': 'line',
-                'source': 'bordeaux-main-region',
+                'source': 'bordeaux_main.geojson',
                 'paint': {
                     'line-color': '#FFFFFF',
                     'line-width': 0.5
