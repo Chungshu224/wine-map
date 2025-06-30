@@ -14,8 +14,7 @@ const subRegionsConfig = [
     { id: 'Pauillac-AOP_Bordeaux_France', path: './data/Pauillac-AOP_Bordeaux_France.geojson', name: 'Pauillac' },
     { id: 'Barsac-AOP_Bordeaux_France', path: './data/Barsac-AOP_Bordeaux_France.geojson', name: 'Barsac' },
     { id: 'saint_emilion', path: './data/saint_emilion.geojson', name: 'Saint-Émilion' },
-    // 根據您準備的 GeoJSON 檔案添加更多子產區
-    // { id: 'some_other_subregion', path: './data/some_other_subregion.geojson', name: '另一個子產區' },
+    
 ];
 
 // 用於儲存從 Google Sheet 載入的葡萄酒產區資料
