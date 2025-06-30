@@ -6,7 +6,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21jZG55ZXQ5MDJwbDJrc
 // --- Google Sheets API 設定 ---
 const GOOGLE_SHEET_ID = '1rZj28eOKn2bkzvEsYXCOofxp1DZAkHWt2Yu9xEMTyKg'; // 請替換為您的 Google Sheet ID
 const GOOGLE_API_KEY = 'AIzaSyCn4cdaBpY2Fz4SXUMtpMhAN84YvOQACcQ'; // 請替換為您剛剛建立的 Google API 金鑰
-const GOOGLE_SHEET_RANGE = 'Sheet1!A:J'; // 根據您的工作表名稱和資料範圍調整 (A:J 表示 A欄到J欄)
+const GOOGLE_SHEET_RANGE = 'Sheet1!A:I'; // 根據您的工作表名稱和資料範圍調整 (A:I 表示 A欄到I欄)
 
 // 定義所有子產區 GeoJSON 檔案的路徑和對應的 ID
 // 您可以在這裡添加或刪除子產區
