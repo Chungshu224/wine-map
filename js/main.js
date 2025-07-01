@@ -140,7 +140,11 @@ function initSidebar() {
 
   subRegions.forEach(filename => {
     const id = filename.replace('.geojson','');
-    const label = id.replace(/-/g, ' '); // 或保留完整檔名也行
+    const label = id
+  .replace(/-AOP_Bordeaux_France$/i, '')
+  .replace(/-PDO_Bordeaux_France$/i, '')
+  .replace(/_/g, ' ')
+  .replace(/-/g, ' ');
     ul.innerHTML += `<li data-id="${id}-fill">
       <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
       ${label}
