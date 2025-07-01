@@ -1,11 +1,46 @@
 // 1. Mapbox Token & 資料設定
 mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21ja3B0NHBzMDBxMzJpc2Q3b2Zzam9qYSJ9.9gYjm_VnBH7MYA-e9zKkCw';
-const DATA_BASE = 'https://chungshu224.github.io/wine-map/wine-map/main/data/';
+const DATA_BASE = 'https://raw.githubusercontent.com/Chungshu224/wine-map/main/data/';
 const mainGeoJSON = 'bordeaux_main.geojson';
+
+// 將所有子產區 GeoJSON 加入此陣列
 const subRegions = [
-  'Pauillac-AOP_Bordeaux_France.geojson',
   'Barsac-AOP_Bordeaux_France.geojson',
-  'saint_emilion.geojson'
+  'Blaye-AOP_Bordeaux_France.geojson',
+  'Bordeaux-AOP_Bordeaux_France.geojson',
+  'Bordeaux-Superior-AOP_Bordeaux_France.geojson',
+  'Canon-Fronsac-AOP_Bordeaux_France.geojson',
+  'Cerons-AOP_Bordeaux_France.geojson',
+  'Cotes-de-Blaye-AOP_Bordeaux_France.geojson',
+  'Cotes-de-Bordeaux-PDO_Bordeaux_France.geojson',
+  'Cotes-de-Bordeaux-St-Macaire-PDO_Bordeaux_France.geojson',
+  'Cotes-de-Bourg-AOP_Bordeaux_France.geojson',
+  'Cremant-de-Bordeaux-AOP_Bordeaux_France.geojson',
+  'Entre-Deux-Mers-AOP_Bordeaux_France.geojson',
+  'Fronsac-AOP_Bordeaux_France.geojson',
+  'Graves-AOP_Bordeaux_France.geojson',
+  'Graves-Superieures-AOP_Bordeaux_France.geojson',
+  'Graves-of-Vayres-AOP_Bordeaux_France.geojson',
+  'Haut-Medoc-AOP_Bordeaux_France.geojson',
+  'Lalande-de-Pomerol-AOP_Bordeaux_France.geojson',
+  'Listrac-Medoc-AOP_Bordeaux_France.geojson',
+  'Loupiac-AOP_Bordeaux_France.geojson',
+  'Lussac-St-Emilion-AOP_Bordeaux_France.geojson',
+  'Margaux-AOP_Bordeaux_France.geojson',
+  'Medoc-AOP_Bordeaux_France.geojson',
+  'Moulis-en-Medoc-AOP_Bordeaux_France.geojson',
+  'Pauillac-AOP_Bordeaux_France.geojson',
+  'Pessac-Leognan-AOP_Bordeaux_France.geojson',
+  'Pomerol-AOP_Bordeaux_France.geojson',
+  'Puisseguin-St-Emilion-AOP_Bordeaux_France.geojson',
+  'Sauternes-PDO_Bordeaux_France.geojson',
+  'St-Croix-du-Mont-AOP_Bordeaux_France.geojson',
+  'St-Emilion-AOP_Bordeaux_France.geojson',
+  'St-Emilion-Grand-Cru-AOP_Bordeaux_France.geojson',
+  'St-Estephe-AOP_Bordeaux_France.geojson',
+  'St-Foy-Bordeaux-AOP_Bordeaux_France.geojson',
+  'St-Georges-St-Emilion-AOP_Bordeaux_France.geojson',
+  'St-Julien-AOP_Bordeaux_France.geojson'
 ];
 
 // 2. 建立地圖
@@ -29,14 +64,13 @@ map.on('load', async () => {
     paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
   });
 
-  // 自動調整到主區域範圍
   const bbox = turf.bbox(mainData);
   map.fitBounds(bbox, { padding: 20 });
 
-  // 同步載入子產區
+  // 依 subRegions 動態載入所有子產區
   await Promise.all(subRegions.map(addSubRegion));
 
-  // 初始化側邊欄
+  // 初始化側邊欄導航
   initSidebar();
 });
 
@@ -53,12 +87,7 @@ async function addSubRegion(filename) {
     source: id,
     paint: {
       'fill-color': randomColor(id),
-      'fill-opacity': [
-        'case',
-        ['>=', ['zoom'], 9],
-        0.4,
-        0
-      ]
+      'fill-opacity': ['case', ['>=', ['zoom'], 9], 0.4, 0]
     }
   });
 
@@ -69,7 +98,6 @@ async function addSubRegion(filename) {
     paint: { 'line-color': '#fff', 'line-width': 1 }
   });
 
-  // 點擊顯示 Popup
   map.on('click', `${id}-fill`, e => {
     const props = e.features[0].properties;
     new mapboxgl.Popup()
@@ -78,7 +106,6 @@ async function addSubRegion(filename) {
       .addTo(map);
   });
 
-  // 滑鼠樣式
   map.on('mouseenter', `${id}-fill`, () => {
     map.getCanvas().style.cursor = 'pointer';
   });
@@ -91,10 +118,7 @@ async function addSubRegion(filename) {
 function initSidebar() {
   const listEl = document.getElementById('region-list');
 
-  // 主產區
   listEl.innerHTML += `<li data-id="main-fill">波爾多總區</li>`;
-
-  // 子產區
   subRegions.forEach(f => {
     const id = f.replace('.geojson', '');
     const label = id.replace(/-/g, ' ');
@@ -107,7 +131,6 @@ function initSidebar() {
       const source = map.getSource(layer.replace('-fill', ''));
       if (!source) return;
 
-      // 讀取 GeoJSON 計算中心
       const data = source._data;
       const center = turf.centerOfMass(data).geometry.coordinates;
       map.flyTo({ center, zoom: layer === 'main-fill' ? 8.5 : 11 });
