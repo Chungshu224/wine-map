@@ -102,11 +102,13 @@ async function loadSubRegion(filename) {
     source: id,
     paint: {
       'fill-color': color,
-      'fill-opacity': [
+     'fill-opacity': [
   'step',
   ['zoom'],
-  0,    // 當 zoom < 9
-  9, 0.4 // 當 zoom >= 9
+  0,     // zoom < 8 → 隱藏
+  8, 0.2,  // zoom 8~10 → 半透明
+  10, 0.5, // zoom 10~12
+  12, 0.8
 ]
     }
   });
