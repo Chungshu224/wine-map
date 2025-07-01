@@ -46,6 +46,9 @@ const subRegions = [
 // 用來快取所有 geojson 資料
 const geojsonCache = {};
 
+// 存放每個區塊的顏色
+const colorMap = {};
+
 // 2. 建立地圖
 const map = new mapboxgl.Map({
   container: 'map',
@@ -55,126 +58,109 @@ const map = new mapboxgl.Map({
 });
 map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-// 3. 載入主區域並 fitBounds
+// 3. 側邊欄收合按鈕
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed');
+  map.resize();  // 收合後重設 map 尺寸
+});
+
+// 4. 地圖載入後：主區 + 子區 + 側邊欄
 map.on('load', async () => {
-  // 檢查 turf 是否已引入
-  if (typeof turf === 'undefined') {
-    alert('Turf.js 尚未載入，請於 HTML 引入 https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js');
-    return;
-  }
-
+  // 主產區
   const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
-  // 快取主區域 geojson
-  geojsonCache['bordeaux-main'] = mainData;
-
   map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
-
   map.addLayer({
     id: 'main-fill',
     type: 'fill',
     source: 'bordeaux-main',
     paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
   });
+  map.fitBounds(turf.bbox(mainData), { padding: 20 });
 
-  const bbox = turf.bbox(mainData);
-  map.fitBounds(bbox, { padding: 20 });
-
-  // 依 subRegions 動態載入所有子產區
+  // 動態載入所有子產區
   await Promise.all(subRegions.map(addSubRegion));
 
-  // 初始化側邊欄導航
+  // 建立側邊欄列表
   initSidebar();
 });
 
-// 4. 動態載入並新增子產區圖層
+// 5. 載入並繪製單一子產區
 async function addSubRegion(filename) {
-  try {
-    const id = filename.replace('.geojson', '');
-    const data = await fetch(DATA_BASE + filename).then(r => r.json());
-    geojsonCache[id] = data;
+  const id = filename.replace('.geojson', '');
+  const data = await fetch(DATA_BASE + filename).then(r => r.json());
 
-    map.addSource(id, { type: 'geojson', data });
+  // 隨機但固定的顏色
+  const color = randomColor(id);
+  colorMap[id] = color;
 
-    map.addLayer({
-      id: `${id}-fill`,
-      type: 'fill',
-      source: id,
-      paint: {
-        'fill-color': randomColor(id),
-        'fill-opacity': [
-          'case',
-          ['>=', ['zoom'], 9], 0.4, 0
-        ]
-      }
-    });
+  map.addSource(id, { type: 'geojson', data });
+  map.addLayer({
+    id: `${id}-fill`,
+    type: 'fill',
+    source: id,
+    paint: {
+      'fill-color': color,
+      'fill-opacity': ['case', ['>=', ['zoom'], 9], 0.4, 0]
+    }
+  });
+  map.addLayer({
+    id: `${id}-border`,
+    type: 'line',
+    source: id,
+    paint: { 'line-color': '#fff', 'line-width': 1 }
+  });
 
-    map.addLayer({
-      id: `${id}-border`,
-      type: 'line',
-      source: id,
-      paint: { 'line-color': '#fff', 'line-width': 1 }
-    });
+  // 點擊顯示 Popup
+  map.on('click', `${id}-fill`, e => {
+    const p = e.features[0].properties;
+    new mapboxgl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<h3>${p.name}</h3><p>${p.description}</p>`)
+      .addTo(map);
+  });
 
-    map.on('click', `${id}-fill`, e => {
-      const props = e.features[0].properties;
-      new mapboxgl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(`<h3>${props?.name || ''}</h3><p>${props?.description || ''}</p>`)
-        .addTo(map);
-    });
-
-    map.on('mouseenter', `${id}-fill`, () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-    map.on('mouseleave', `${id}-fill`, () => {
-      map.getCanvas().style.cursor = '';
-    });
-  } catch (err) {
-    // 若 geojson 檔案載入失敗
-    console.error(`載入 ${filename} 失敗`, err);
-  }
+  // 滑鼠手勢
+  map.on('mouseenter', `${id}-fill`, () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', `${id}-fill`, () => {
+    map.getCanvas().style.cursor = '';
+  });
 }
 
-// 5. 生成側邊欄列表並綁定焦點功能
+// 6. 側邊欄：列表＋點擊飛航
 function initSidebar() {
-  const listEl = document.getElementById('region-list');
-  if (!listEl) {
-    console.warn('找不到 region-list 元素');
-    return;
-  }
+  const ul = document.getElementById('region-list');
+  ul.innerHTML  = `<li data-id="main-fill">
+                     <span class="color-block" style="background:#880808"></span>
+                     波爾多總區
+                   </li>`;
 
-  listEl.innerHTML = ''; // 清空舊內容
-  listEl.innerHTML += `<li data-id="main-fill">波爾多總區</li>`;
-  subRegions.forEach(f => {
-    const id = f.replace('.geojson', '');
-    const label = id.replace(/-/g, ' ');
-    listEl.innerHTML += `<li data-id="${id}-fill">${label}</li>`;
+  subRegions.forEach(file => {
+    const id = file.replace('.geojson','');
+    const lbl = id.replace(/-/g,' ');
+    ul.innerHTML += `<li data-id="${id}-fill">
+                       <span class="color-block" style="background:${colorMap[id]}"></span>
+                       ${lbl}
+                     </li>`;
   });
 
-  listEl.querySelectorAll('li').forEach(item => {
-    item.addEventListener('click', () => {
-      const layer = item.dataset.id;
-      const id = layer.replace('-fill', '');
-      const data = id === 'main' ? geojsonCache['bordeaux-main'] : geojsonCache[id];
-      if (!data) return;
-
-      // 取得中心點
-      let center;
-      try {
-        center = turf.centerOfMass(data).geometry.coordinates;
-      } catch (e) {
-        // centerOfMass 失敗 fallback 用 bbox centroid
-        const bbox = turf.bbox(data);
-        center = [(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2];
-      }
-      map.flyTo({ center, zoom: layer === 'main-fill' ? 8.5 : 11 });
+  ul.querySelectorAll('li').forEach(li => {
+    li.addEventListener('click', () => {
+      const layer = li.dataset.id;
+      const src   = map.getSource(layer.replace('-fill',''));
+      if (!src) return;
+      const center = turf.centerOfMass(src._data).geometry.coordinates;
+      map.flyTo({ center, zoom: layer==='main-fill'?8.5:11 });
     });
   });
 }
 
-// 6. 依圖層 ID 產生顏色（同一名稱永遠同色）
+// 7. 產生固定顏色
 function randomColor(str) {
-  let hash = 0;
-  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
-  return `hsl(${(hash % 360 + 360) % 360}, 60%, 50%)`;
+  let h=0;
+  for (let c of str) h = c.charCodeAt(0) + ((h<<5)-h);
+  return `hsl(${h%360},60%,50%)`;
 }
+
