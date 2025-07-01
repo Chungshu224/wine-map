@@ -1,7 +1,7 @@
 // js/main.js
 
 // 步驟 1: 設定 Mapbox Access Token
-mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21jZG55ZXQ5MDJwbDJrcTNwM2hndXkwbyJ9.SdP0nM5g3XrCOisigvissw'; 
+mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21ja3B0NHBzMDBxMzJpc2Q3b2Zzam9qYSJ9.9gYjm_VnBH7MYA-e9zKkCw'; 
 
 // --- Google Sheets API 設定 ---
 const GOOGLE_SHEET_ID = '1rZj28eOKn2bkzvEsYXCOofxp1DZAkHWt2Yu9xEMTyKg'; // 請替換為您的 Google Sheet ID
