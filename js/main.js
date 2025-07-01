@@ -86,16 +86,6 @@ function loadMap(styleURL) {
     initSidebar();
   });
 }
-map.flyTo({ center, zoom: 11 });
-
-setTimeout(() => {
-  new mapboxgl.Popup()
-    .setLngLat(center)
-    .setHTML(`<h3>${regionId}</h3>`)
-    .addTo(map);
-}, 600); // 延遲出現避免視覺卡頓
-const bbox = turf.bbox(src._data);
-map.fitBounds(bbox, { padding: 40 });
 
 async function loadSubRegion(filename) {
   const id = filename.replace('.geojson','');
@@ -151,7 +141,7 @@ function initSidebar() {
     li.addEventListener('click', () => {
       const layer = li.dataset.id;
       const src = map.getSource(layer.replace('-fill',''));
-      if (!src) return;
+      if (!src || !src._data) return;
       const bounds = turf.bbox(src._data);
       map.fitBounds(bounds, { padding: 40 });
 
@@ -172,9 +162,19 @@ function generateColor(id) {
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return `hsl(${hash % 360}, 60%,
+  return `hsl(${hash % 360}, 60%, 55%)`;
+}
 
-  document.getElementById('toggle-sidebar').addEventListener('click', () => {
+// 側邊欄開關
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('active');
   map.resize();
+});
+
+// 樣式切換
+document.querySelectorAll('input[name="style"]').forEach(radio => {
+  radio.addEventListener('change', e => {
+    currentStyle = styleMap[e.target.value];
+    loadMap(currentStyle);
+  });
 });
