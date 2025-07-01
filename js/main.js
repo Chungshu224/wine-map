@@ -1,6 +1,6 @@
 // 1. Mapbox Token & 資料設定
 mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21ja3B0NHBzMDBxMzJpc2Q3b2Zzam9qYSJ9.9gYjm_VnBH7MYA-e9zKkCw';
-const DATA_BASE = 'https://raw.githubusercontent.com/Chungshu224/wine-map/main/data/';
+const DATA_BASE = 'https://chungshu224.github.io/wine-map/wine-map/main/data/';
 const mainGeoJSON = 'bordeaux_main.geojson';
 const subRegions = [
   'Pauillac-AOP_Bordeaux_France.geojson',
