@@ -134,13 +134,16 @@ async function loadSubRegion(filename) {
 
 function initSidebar() {
   const ul = document.getElementById('region-list');
-  ul.innerHTML = `<li data-id="main-fill"><span class="color-block" style="background:#880808"></span> 波爾多總區</li>`;
+  ul.innerHTML = `<li data-id="main-fill">
+    <span class="color-block" style="background:#880808"></span> 波爾多總區
+  </li>`;
+
   subRegions.forEach(filename => {
     const id = filename.replace('.geojson','');
-    const info = colorMap[id];
+    const label = id.replace(/-/g, ' '); // 或保留完整檔名也行
     ul.innerHTML += `<li data-id="${id}-fill">
-      <span class="color-block" style="background:${info.color}"></span>
-      ${info.regionId}
+      <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
+      ${label}
     </li>`;
   });
 
@@ -148,17 +151,17 @@ function initSidebar() {
     li.addEventListener('click', () => {
       const layer = li.dataset.id;
       const src = map.getSource(layer.replace('-fill',''));
-      if (!src || !src._data) return;
+      if (!src) return;
+
       const bounds = turf.bbox(src._data);
       map.fitBounds(bounds, { padding: 40 });
 
-      setTimeout(() => {
-        const center = turf.center(src._data).geometry.coordinates;
-        new mapboxgl.Popup()
-          .setLngLat(center)
-          .setHTML(`<h3>${colorMap[layer.replace('-fill','')].regionId}</h3>`)
-          .addTo(map);
-      }, 500);
+      // 選擇性：仍可顯示標題 popup，也用 ID
+      const center = turf.center(src._data).geometry.coordinates;
+      new mapboxgl.Popup()
+        .setLngLat(center)
+        .setHTML(`<h3>${layer.replace('-fill','')}</h3>`)
+        .addTo(map);
     });
   });
 }
