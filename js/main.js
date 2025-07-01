@@ -86,6 +86,16 @@ function loadMap(styleURL) {
     initSidebar();
   });
 }
+map.flyTo({ center, zoom: 11 });
+
+setTimeout(() => {
+  new mapboxgl.Popup()
+    .setLngLat(center)
+    .setHTML(`<h3>${regionId}</h3>`)
+    .addTo(map);
+}, 600); // 延遲出現避免視覺卡頓
+const bbox = turf.bbox(src._data);
+map.fitBounds(bbox, { padding: 40 });
 
 async function loadSubRegion(filename) {
   const id = filename.replace('.geojson','');
