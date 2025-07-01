@@ -42,6 +42,7 @@ body {
 #region-list li {
   display: flex;
   align-items: center;
+  font-size: 12px;
   margin: 6px 0;
   cursor: pointer;
 }
