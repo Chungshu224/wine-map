@@ -173,3 +173,8 @@ function generateColor(id) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
   return `hsl(${hash % 360}, 60%,
+
+  document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('active');
+  map.resize();
+});
