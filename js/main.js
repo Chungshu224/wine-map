@@ -1,54 +1,8 @@
 // js/main.js
 
 // 步驟 1: 設定 Mapbox Access Token
+// 請務必將 'YOUR_MAPBOX_ACCESS_TOKEN' 替換為您自己的 Mapbox Access Token
 mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21ja3B0NHBzMDBxMzJpc2Q3b2Zzam9qYSJ9.9gYjm_VnBH7MYA-e9zKkCw'; 
-
-// --- Google Sheets API 設定 ---
-const GOOGLE_SHEET_ID = '1rZj28eOKn2bkzvEsYXCOofxp1DZAkHWt2Yu9xEMTyKg'; // 請替換為您的 Google Sheet ID
-const GOOGLE_API_KEY = 'AIzaSyCn4cdaBpY2Fz4SXUMtpMhAN84YvOQACcQ'; // 請替換為您剛剛建立的 Google API 金鑰
-const GOOGLE_SHEET_RANGE = 'Sheet1!A:I'; // 根據您的工作表名稱和資料範圍調整 (A:I 表示 A欄到I欄)
-
-// 定義所有子產區 GeoJSON 檔案的路徑和對應的 ID
-// 您可以在這裡添加或刪除子產區
-const subRegionsConfig = [
-    { id: 'Pauillac-AOP_Bordeaux_France', path: './data/Pauillac-AOP_Bordeaux_France.geojson', name: 'Pauillac' },
-    { id: 'Barsac-AOP_Bordeaux_France', path: './data/Barsac-AOP_Bordeaux_France.geojson', name: 'Barsac' },
-    { id: 'saint_emilion', path: './data/saint_emilion.geojson', name: 'Saint-Émilion' },
-    
-];
-
-// 用於儲存從 Google Sheet 載入的葡萄酒產區資料
-let wineRegionData = {};
-
-// 函數：從 Google Sheet 載入資料
-async function loadWineRegionData() {
-    try {
-        const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEET_ID}/values/${GOOGLE_SHEET_RANGE}?key=${GOOGLE_API_KEY}`);
-        const data = await response.json();
-
-        // 將陣列數據轉換為以 region_id 為鍵的物件，方便查詢
-        if (data.values && data.values.length > 1) { // 確保有標題行和至少一行數據
-            const headers = data.values[0]; // 第一行為標題
-            const rows = data.values.slice(1); // 從第二行開始是數據
-
-            rows.forEach(row => {
-                const region = {};
-                headers.forEach((header, index) => {
-                    region[header] = row[index];
-                });
-                if (region.region_id) {
-                    wineRegionData[region.region_id] = region;
-                }
-            });
-            console.log('Google Sheet 數據載入成功:', wineRegionData);
-        } else {
-            console.warn('Google Sheet 中沒有找到有效數據。');
-        }
-    } catch (error) {
-        console.error('載入 Google Sheet 數據時發生錯誤:', error);
-    }
-}
-
 
 // 步驟 2: 初始化 Mapbox 地圖
 const map = new mapboxgl.Map({
@@ -58,124 +12,68 @@ const map = new mapboxgl.Map({
     zoom: 8.5
 });
 
-map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-// map.addControl(new mapboxgl.GeolocateControl({...}), 'top-right');
+// 添加縮放和羅盤控制按鈕
+map.addControl(new mapboxgl.NavigationControl(), 'top-left'); // 'top-left' 可以是 'top-right', 'bottom-left', 'bottom-right'
+// map.addControl(new mapboxgl.GeolocateControl({
+//     positionOptions: {
+//         enableHighAccuracy: true
+//     },
+//     trackUserLocation: true,
+//     showUserHeading: true
+// }), 'top-right'); // 如果需要顯示使用者目前位置
+});
 
 // 步驟 3: 當地圖完全載入後，添加 GeoJSON 數據和圖層
 map.on('load', () => {
-    fetch('./data/bordeaux_main.geojson')
+    // 載入 GeoJSON 數據
+    fetch('./data/bordeaux_main.geojson') // 確保路徑正確指向您儲存的 GeoJSON 檔案
         .then(response => response.json())
         .then(data => {
-            map.addSource('bordeaux-main-region', {
+            // 將 GeoJSON 數據添加到 Mapbox 的數據源中
+            map.addSource('bordeaux-wine-region', {
                 'type': 'geojson',
                 'data': data
             });
+
+            // 添加一個填充圖層來顯示波爾多產區的邊界
             map.addLayer({
-                'id': 'bordeaux-fill',
-                'type': 'fill',
-                'source': 'bordeaux-main-region',
+                'id': 'bordeaux-fill', // 圖層的唯一 ID
+                'type': 'fill', // 填充多邊形
+                'source': 'bordeaux-wine-region', // 指定數據源
                 'paint': {
-                    'fill-color': '#880808',
-                    'fill-opacity': 0.1,
-                    'fill-outline-color': '#FFFFFF'
+                    'fill-color': '#880808', // 深紅色填充，代表葡萄酒
+                    'fill-opacity': 0.7, // 半透明
+                    'fill-outline-color': '#FFFFFF' // 白色邊框
                 }
             });
+
+            // 添加一個線條圖層來突出顯示邊界 (可選，讓邊界更明顯)
             map.addLayer({
                 'id': 'bordeaux-border',
                 'type': 'line',
-                'source': 'bordeaux-main-region',
+                'source': 'bordeaux-wine-region',
                 'paint': {
-                    'line-color': '#FFFFFF',
-                    'line-width': 0.5
+                    'line-color': '#FFFFFF', // 白色線條
+                    'line-width': 2 // 線條粗細
                 }
             });
+
             console.log('波爾多 GeoJSON 數據和圖層已成功載入！');
+
+            // 調整地圖視角以適應 GeoJSON 的範圍 (可選，但推薦)
             if (data.features && data.features.length > 0) {
-                const bbox = turf.bbox(data);
-                map.fitBounds(bbox, { padding: 20 });
+                const bbox = turf.bbox(data); // 需要引入 Turf.js 或手動計算 bbox
+                map.fitBounds(bbox, {
+                    padding: 20 // 邊界填充
+                });
             } else {
-                console.warn('GeoJSON 數據中沒有找到 features，無法自動調整視圖。');
+                 console.warn('GeoJSON 數據中沒有找到 features，無法自動調整視圖。');
             }
+
         })
         .catch(error => {
             console.error('載入或解析波爾多 GeoJSON 檔案時發生錯誤:', error);
         });
 });
- // --- 點擊事件：處理波爾多總體產區或子產區的點擊 ---
-    // 先定義一個函數來顯示彈出視窗內容，避免重複程式碼
-    const showRegionPopup = (e, regionId) => {
-        if (regionId && wineRegionData[regionId]) {
-            const info = wineRegionData[regionId];
-            let popupContent = `<h3>${info.name}</h3>`;
-            popupContent += `<p>${info.description}</p>`;
-            if (info.area_sq_km) {
-                popupContent += `<p><strong>葡萄園面積:</strong> ${info.area_sq_km} 公頃</p>`;
-            }
-            if (info.grape_varieties) {
-                popupContent += `<p><strong>主要葡萄品種:</strong> ${info.grape_varieties}</p>`;
-            }
-            if (info.classification) {
-                popupContent += `<p><strong>分類:</strong> ${info.classification}</p>`;
-            }
-            if (info.notes) {
-                popupContent += `<p><strong>備註:</strong> ${info.notes}</p>`;
-            }
 
-            if (info.image_url) {
-                popupContent += `<img src="${info.image_url}" alt="${info.name}" style="width:100%; max-height:200px; object-fit:cover; margin-top: 10px;">`;
-            }
-            if (info.video_url) {
-                popupContent += `<div style="margin-top: 10px; position: relative; width: 100%; padding-bottom: 56.25%; height: 0;"><iframe src="${info.video_url}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe></div>`;
-            }
-
-            new mapboxgl.Popup()
-                .setLngLat(e.lngLat)
-                .setHTML(popupContent)
-                .addTo(map);
-        } else {
-            console.warn(`未找到 ID 為 ${regionId} 的產區數據。`);
-        }
-    };
-
-
-    // 點擊波爾多總體產區
-    map.on('click', 'bordeaux-main-fill', (e) => {
-        const features = map.queryRenderedFeatures(e.point, {
-            layers: ['bordeaux-main-fill']
-        });
-        if (features.length) {
-            const regionId = features[0].properties.region_id;
-            // 只有當子產區被隱藏時才顯示總體產區的 popup，避免重疊
-            if (map.getZoom() < 9) { // 這裡的 9 應與 bordeaux-sub-fill 的 'case' 條件一致
-                showRegionPopup(e, regionId);
-            }
-        }
-    });
-
-    // 點擊波爾多子產區
-    map.on('click', 'bordeaux-sub-fill', (e) => {
-        const features = map.queryRenderedFeatures(e.point, {
-            layers: ['bordeaux-sub-fill']
-        });
-        if (features.length) {
-            const regionId = features[0].properties.region_id;
-            showRegionPopup(e, regionId); // 子產區總會顯示 popup
-        }
-    });
-
-
-    // 更改鼠標樣式，指示可點擊
-    map.on('mouseenter', 'bordeaux-main-fill', () => {
-        map.getCanvas().style.cursor = 'pointer';
-    });
-    map.on('mouseleave', 'bordeaux-main-fill', () => {
-        map.getCanvas().style.cursor = '';
-    });
-
-    map.on('mouseenter', 'bordeaux-sub-fill', () => {
-        map.getCanvas().style.cursor = 'pointer';
-    });
-    map.on('mouseleave', 'bordeaux-sub-fill', () => {
-        map.getCanvas().style.cursor = '';
-    });
-});
+// 未來，我們將在這裡添加點擊事件、資訊面板顯示等互動邏輯
