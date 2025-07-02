@@ -44,41 +44,57 @@ const subRegions = [
   'St-Georges-St-Emilion-AOP_Bordeaux_France.geojson',
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
-// 2. 建立地圖
-const map = new mapboxgl.Map({
-  container: 'map',
-  style: 'mapbox://styles/mapbox/satellite-v9',
-  center: [0.0, 44.80],
-  zoom: 8.5
-});
-map.addControl(new mapboxgl.NavigationControl(), 'top-left');
+// 2. 主圖層資料
+const DATA_BASE = 'https://raw.githubusercontent.com/Chungshu224/wine-map/main/data/';
+const mainGeoJSON = 'bordeaux_main.geojson';
+const subRegions = [
+  // ← 這裡放你所有子產區 .geojson 清單
+  'Barsac-AOP_Bordeaux_France.geojson',
+  'St-Julien-AOP_Bordeaux_France.geojson',
+  // ...
+];
 
-// 3. 載入主區域並 fitBounds
-map.on('load', async () => {
-  const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
-  map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
+const colorMap = {};
+let map;
 
-  map.addLayer({
-    id: 'main-fill',
-    type: 'fill',
-    source: 'bordeaux-main',
-    paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
+loadMap(currentStyle);
+
+// 3. 建立地圖函式
+function loadMap(styleURL) {
+  if (map) map.remove(); // 若已有地圖就移除
+  map = new mapboxgl.Map({
+    container: 'map',
+    style: styleURL,
+    center: [0.0, 44.80],
+    zoom: 8.5
   });
+  map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-  const bbox = turf.bbox(mainData);
-  map.fitBounds(bbox, { padding: 20 });
+  map.on('load', async () => {
+    const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
+    map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
 
-  // 依 subRegions 動態載入所有子產區
-  await Promise.all(subRegions.map(addSubRegion));
+    map.addLayer({
+      id: 'main-fill',
+      type: 'fill',
+      source: 'bordeaux-main',
+      paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
+    });
 
-  // 初始化側邊欄導航
-  initSidebar();
-});
+    const bbox = turf.bbox(mainData);
+    map.fitBounds(bbox, { padding: 30 });
 
-// 4. 動態載入並新增子產區圖層
-async function addSubRegion(filename) {
-  const id = filename.replace('.geojson', '');
+    await Promise.all(subRegions.map(loadSubRegion));
+    initSidebar();
+  });
+}
+
+async function loadSubRegion(filename) {
+  const id = filename.replace('.geojson','');
   const data = await fetch(DATA_BASE + filename).then(r => r.json());
+  const regionId = data.features?.[0]?.properties?.region_id || id;
+  const color = generateColor(id);
+  colorMap[id] = { color, regionId };
 
   map.addSource(id, { type: 'geojson', data });
 
@@ -87,7 +103,7 @@ async function addSubRegion(filename) {
     type: 'fill',
     source: id,
     paint: {
-      'fill-color': randomColor(id),
+      'fill-color': color,
       'fill-opacity': ['case', ['>=', ['zoom'], 9], 0.4, 0]
     }
   });
@@ -103,47 +119,49 @@ async function addSubRegion(filename) {
     const props = e.features[0].properties;
     new mapboxgl.Popup()
       .setLngLat(e.lngLat)
-      .setHTML(`<h3>${props.name}</h3><p>${props.description}</p>`)
+      .setHTML(`<h3>${props.region_id || 'Unknown Region'}</h3>`)
       .addTo(map);
   });
 
-  map.on('mouseenter', `${id}-fill`, () => {
-    map.getCanvas().style.cursor = 'pointer';
-  });
-  map.on('mouseleave', `${id}-fill`, () => {
-    map.getCanvas().style.cursor = '';
-  });
+  map.on('mouseenter', `${id}-fill`, () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', `${id}-fill`, () => map.getCanvas().style.cursor = '');
 }
 
-// 5. 生成側邊欄列表並綁定焦點功能
 function initSidebar() {
-  const listEl = document.getElementById('region-list');
-
-  listEl.innerHTML += `<li data-id="main-fill">波爾多總區</li>`;
-  subRegions.forEach(f => {
-    const id = f.replace('.geojson', '');
-    const label = id.replace(/-/g, ' ');
-    listEl.innerHTML += `<li data-id="${id}-fill">${label}</li>`;
+  const ul = document.getElementById('region-list');
+  ul.innerHTML = `<li data-id="main-fill"><span class="color-block" style="background:#880808"></span> 波爾多總區</li>`;
+  subRegions.forEach(filename => {
+    const id = filename.replace('.geojson','');
+    const info = colorMap[id];
+    ul.innerHTML += `<li data-id="${id}-fill">
+      <span class="color-block" style="background:${info.color}"></span>
+      ${info.regionId}
+    </li>`;
   });
 
-  listEl.querySelectorAll('li').forEach(item => {
-    item.addEventListener('click', () => {
-      const layer = item.dataset.id;
-      const source = map.getSource(layer.replace('-fill', ''));
-      if (!source) return;
+  ul.querySelectorAll('li').forEach(li => {
+    li.addEventListener('click', () => {
+      const layer = li.dataset.id;
+      const src = map.getSource(layer.replace('-fill',''));
+      if (!src) return;
+      const bounds = turf.bbox(src._data);
+      map.fitBounds(bounds, { padding: 40 });
 
-      const data = source._data;
-      const center = turf.centerOfMass(data).geometry.coordinates;
-      map.flyTo({ center, zoom: layer === 'main-fill' ? 8.5 : 11 });
+      setTimeout(() => {
+        const center = turf.center(src._data).geometry.coordinates;
+        new mapboxgl.Popup()
+          .setLngLat(center)
+          .setHTML(`<h3>${colorMap[layer.replace('-fill','')].regionId}</h3>`)
+          .addTo(map);
+      }, 500);
     });
   });
 }
 
-// 6. 依圖層 ID 產生顏色
-function randomColor(str) {
+// 顏色生成：固定但分散
+function generateColor(id) {
   let hash = 0;
-  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
-  return `hsl(${hash % 360}, 60%, 50%)`;
-}
-
-
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${hash % 360}, 60%,
