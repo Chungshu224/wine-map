@@ -132,33 +132,58 @@ async function loadSubRegion(filename) {
 
 function initSidebar() {
   const ul = document.getElementById('region-list');
-  ul.innerHTML = `<li data-id="main-fill">
+  if (!ul) {
+    console.warn('❗ 無法找到 #region-list 元素，無法初始化側邊欄');
+    return;
+  }
+
+  // 清空內容
+  ul.innerHTML = '';
+
+  // 加入主區域（固定項目）
+  ul.innerHTML += `<li data-id="main-fill">
     <span class="color-block" style="background:#880808"></span> 波爾多總區
   </li>`;
 
+  // 加入子產區
   subRegions.forEach(filename => {
     const id = filename.replace('.geojson','');
+
+    // 處理顯示文字（格式化檔名）
     const label = id
-  .replace(/-AOP_Bordeaux_France$/i, '')
-  .replace(/-PDO_Bordeaux_France$/i, '')
-  .replace(/_/g, ' ')
-  .replace(/-/g, ' ');
+      .replace(/-AOP_Bordeaux_France$/i, '')
+      .replace(/-PDO_Bordeaux_France$/i, '')
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ');
+
+    // 取得色塊
+    const color = colorMap[id]?.color || '#ccc';
+    if (!colorMap[id]) {
+      console.warn(`⚠️ 找不到 colorMap 資料：${id}`);
+    }
+
+    // 加入列表項目
     ul.innerHTML += `<li data-id="${id}-fill">
-      <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
+      <span class="color-block" style="background:${color}"></span>
       ${label}
     </li>`;
   });
 
+  // 綁定點擊事件
   ul.querySelectorAll('li').forEach(li => {
     li.addEventListener('click', () => {
       const layer = li.dataset.id;
       const src = map.getSource(layer.replace('-fill',''));
-      if (!src) return;
+      if (!src) {
+        console.warn(`⚠️ 找不到地圖來源：${layer}`);
+        return;
+      }
 
+      // 取得範圍後自動聚焦
       const bounds = turf.bbox(src._data);
       map.fitBounds(bounds, { padding: 40 });
 
-      // 選擇性：仍可顯示標題 popup，也用 ID
+      // 顯示中心 popup
       const center = turf.center(src._data).geometry.coordinates;
       new mapboxgl.Popup()
         .setLngLat(center)
