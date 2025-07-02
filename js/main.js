@@ -65,14 +65,13 @@ map.on('load', async () => {
     paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
   });
 
-  // 自動調整到主區域範圍
   const bbox = turf.bbox(mainData);
   map.fitBounds(bbox, { padding: 20 });
 
-  // 同步載入子產區
+  // 依 subRegions 動態載入所有子產區
   await Promise.all(subRegions.map(addSubRegion));
 
-  // 初始化側邊欄
+  // 初始化側邊欄導航
   initSidebar();
 });
 
@@ -89,12 +88,7 @@ async function addSubRegion(filename) {
     source: id,
     paint: {
       'fill-color': randomColor(id),
-      'fill-opacity': [
-        'case',
-        ['>=', ['zoom'], 9],
-        0.4,
-        0
-      ]
+      'fill-opacity': ['case', ['>=', ['zoom'], 9], 0.4, 0]
     }
   });
 
@@ -105,7 +99,6 @@ async function addSubRegion(filename) {
     paint: { 'line-color': '#fff', 'line-width': 1 }
   });
 
-  // 點擊顯示 Popup
   map.on('click', `${id}-fill`, e => {
     const props = e.features[0].properties;
     new mapboxgl.Popup()
@@ -114,7 +107,6 @@ async function addSubRegion(filename) {
       .addTo(map);
   });
 
-  // 滑鼠樣式
   map.on('mouseenter', `${id}-fill`, () => {
     map.getCanvas().style.cursor = 'pointer';
   });
@@ -127,10 +119,7 @@ async function addSubRegion(filename) {
 function initSidebar() {
   const listEl = document.getElementById('region-list');
 
-  // 主產區
   listEl.innerHTML += `<li data-id="main-fill">波爾多總區</li>`;
-
-  // 子產區
   subRegions.forEach(f => {
     const id = f.replace('.geojson', '');
     const label = id.replace(/-/g, ' ');
@@ -143,7 +132,6 @@ function initSidebar() {
       const source = map.getSource(layer.replace('-fill', ''));
       if (!source) return;
 
-      // 讀取 GeoJSON 計算中心
       const data = source._data;
       const center = turf.centerOfMass(data).geometry.coordinates;
       map.flyTo({ center, zoom: layer === 'main-fill' ? 8.5 : 11 });
@@ -157,4 +145,5 @@ function randomColor(str) {
   for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
   return `hsl(${hash % 360}, 60%, 50%)`;
 }
+
 
