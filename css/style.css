@@ -1,86 +1,54 @@
-* { box-sizing: border-box; }
 body {
   margin: 0;
+  padding: 0;
   font-family: sans-serif;
-  height: 100vh;
   display: flex;
+  height: 100vh;
   overflow: hidden;
 }
-#map { flex: 1; position: relative; }
 
 #sidebar {
   width: 250px;
-  background: rgba(255,255,255,0.95);
-  border-right: 1px solid #ccc;
+  background: #fafafa;
+  border-right: 1px solid #ddd;
   padding: 15px;
+  box-sizing: border-box;
   overflow-y: auto;
-  transition: transform 0.3s ease;
 }
-#sidebar.collapsed {
-  transform: translateX(-100%);
-}
-#toggle-sidebar {
-  position: absolute;
-  top: 10px;
-  right: -35px;
-  background: #fff;
-  border: 1px solid #aaa;
-  padding: 6px 8px;
-  cursor: pointer;
-  z-index: 1000;
-}
+
 #sidebar h2 {
-  font-size: 16px;
   margin-top: 0;
   color: #880808;
 }
+
 #region-list {
   list-style: none;
   padding: 0;
-  font-size: 12px;
 }
+
 #region-list li {
-  display: flex;
-  align-items: center;
-  font-size: 12px;
-  margin: 6px 0;
+  margin: 8px 0;
   cursor: pointer;
-}
-#region-list li .color-block {
-  width: 12px;
-  height: 12px;
-  margin-right: 6px;
-  border: 1px solid #999;
+  color: #333;
 }
 
-#style-switcher {
-  position: absolute;
-  top: 15px;
-  right: 20px;
-  background: rgba(255,255,255,0.85);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  z-index: 1000;
-}
-#style-switcher label {
-  margin-right: 10px;
+#region-list li:hover {
+  text-decoration: underline;
 }
 
-@media screen and (max-width: 600px) {
-  #sidebar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    transform: translateX(-100%);
-    z-index: 999;
-  }
-  #sidebar.active {
-    transform: translateX(0);
-  }
-  #toggle-sidebar {
-    left: 10px;
-    right: auto;
-  }
+#map {
+  flex: 1;
+  position: relative;
+}
+
+.mapboxgl-popup-content h3 {
+  margin: 0 0 8px;
+  color: #880808;
+}
+
+.mapboxgl-popup-content img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin-bottom: 5px;
 }
