@@ -1,78 +1,85 @@
 * { box-sizing: border-box; }
-
 body {
   margin: 0;
-  padding: 0;
-  display: flex;
-  height: 100vh;
   font-family: sans-serif;
+  height: 100vh;
+  display: flex;
   overflow: hidden;
 }
+#map { flex: 1; position: relative; }
 
 #sidebar {
-  position: relative;
   width: 250px;
-  background: rgba(250,250,250,0.85);
-  backdrop-filter: blur(4px);
-  border-right: 1px solid #ddd;
-  padding: 15px 10px 15px 20px;
+  background: rgba(255,255,255,0.95);
+  border-right: 1px solid #ccc;
+  padding: 15px;
   overflow-y: auto;
-  transition: width .3s ease, opacity .3s ease;
+  transition: transform 0.3s ease;
 }
-
 #sidebar.collapsed {
-  width: 0;
-  opacity: 0;
-  padding: 0;
-  border: none;
-  pointer-events: none;
+  transform: translateX(-100%);
 }
-
 #toggle-sidebar {
   position: absolute;
   top: 10px;
   right: -35px;
-  width: 30px;
-  height: 30px;
-  font-size: 18px;
   background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 1px solid #aaa;
+  padding: 6px 8px;
   cursor: pointer;
+  z-index: 1000;
 }
-
 #sidebar h2 {
-  margin: 0 0 10px;
+  font-size: 16px;
+  margin-top: 0;
   color: #880808;
 }
-
 #region-list {
   list-style: none;
-  margin: 0;
   padding: 0;
+  font-size: 12px;
 }
-
 #region-list li {
   display: flex;
   align-items: center;
   margin: 6px 0;
   cursor: pointer;
-  color: #333;
 }
-
 #region-list li .color-block {
   width: 12px;
   height: 12px;
-  margin-right: 8px;
-  border: 1px solid #aaa;
-  flex-shrink: 0;
+  margin-right: 6px;
+  border: 1px solid #999;
 }
 
-#region-list li:hover {
-  text-decoration: underline;
+#style-switcher {
+  position: absolute;
+  top: 15px;
+  right: 20px;
+  background: rgba(255,255,255,0.85);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 1000;
+}
+#style-switcher label {
+  margin-right: 10px;
 }
 
-#map {
-  flex: 1;
-  position: relative;
+@media screen and (max-width: 600px) {
+  #sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    transform: translateX(-100%);
+    z-index: 999;
+  }
+  #sidebar.active {
+    transform: translateX(0);
+  }
+  #toggle-sidebar {
+    left: 10px;
+    right: auto;
+  }
 }
