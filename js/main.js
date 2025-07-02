@@ -183,7 +183,7 @@ document.getElementById('toggle-sidebar').addEventListener('click', () => {
 
 // 樣式切換
 document.querySelectorAll('input[name="style"]').forEach(radio => {
-  radio.addEventListener('change', e => {More actions
+  radio.addEventListener('change', e => {
     currentStyle = styleMap[e.target.value];
     loadMap(currentStyle);
   });
