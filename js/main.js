@@ -16,9 +16,8 @@ const subRegions = [
   'Canon-Fronsac-AOP_Bordeaux_France.geojson',
   'Cerons-AOP_Bordeaux_France.geojson',
   'Cotes-de-Blaye-AOP_Bordeaux_France.geojson',
-  'Cotes-de-Bordeaux-PDO_Bordeaux_France.geojson',
   'Cotes-de-Bordeaux-St-Macaire-PDO_Bordeaux_France.geojson',
-  'Cotes-de-Bourg-AOP_Bordeaux_France.geojson',
+  'Cotes-de-Bourg-AOP_Bordeaux_France.geojson',
   'Entre-Deux-Mers-AOP_Bordeaux_France.geojson',
   'Fronsac-AOP_Bordeaux_France.geojson',
   'Graves-AOP_Bordeaux_France.geojson',
@@ -45,37 +44,30 @@ const subRegions = [
   'St-Georges-St-Emilion-AOP_Bordeaux_France.geojson',
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
+// 用來快取所有 geojson 資料
+const geojsonCache = {};
 
+// 存放每個區塊的顏色
+const colorMap = {};
 let map;
-let selectedSubRegion = null;
-const colorMap = {}; // { id: { color, label } }
 
-loadMap();
+loadMap(currentStyle);
 
-function loadMap() {
+// 3. 建立地圖函式
+function loadMap(styleURL) {
+  if (map) map.remove(); // 若已有地圖就移除
   map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/mapbox/satellite-v9',
+    style: styleURL,
     center: [0.0, 44.80],
     zoom: 8.5
   });
-
   map.addControl(new mapboxgl.NavigationControl(), 'top-left');
-
-  map.on('click', e => {
-    const features = map.queryRenderedFeatures(e.point);
-    const clicked = features.find(f => f.layer.id.endsWith('-fill'));
-    if (!clicked && selectedSubRegion) {
-      selectedSubRegion = null;
-      resetSubRegionStyle();
-      const mainBounds = turf.bbox(map.getSource('bordeaux-main')._data);
-      map.fitBounds(mainBounds, { padding: 40 });
-    }
-  });
 
   map.on('load', async () => {
     const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
     map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
+
     map.addLayer({
       id: 'main-fill',
       type: 'fill',
@@ -83,95 +75,74 @@ function loadMap() {
       paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
     });
 
-    map.fitBounds(turf.bbox(mainData), { padding: 40 });
+    const bbox = turf.bbox(mainData);
+    map.fitBounds(bbox, { padding: 30 });
 
     await Promise.all(subRegions.map(loadSubRegion));
     initSidebar();
-    initSearchBox();
   });
 }
 
-async function loadSubRegion(file) {
-  const id = file.replace('.geojson', '');
-  const label = id
-    .replace(/-AOPBordeauxFrance$/i, '')
-    .replace(/-PDOBordeauxFrance$/i, '')
-    .replace(/_/g, ' ')
-    .replace(/-/g, ' ');
+async function loadSubRegion(filename) {
+  const id = filename.replace('.geojson','');
+  const data = await fetch(DATA_BASE + filename).then(r => r.json());
+  const regionId = data.features?.[0]?.properties?.region_id || id;
   const color = generateColor(id);
-  colorMap[id] = { color, label };
+  colorMap[id] = { color, regionId };
 
-  const data = await fetch(DATA_BASE + file).then(r => r.json());
   map.addSource(id, { type: 'geojson', data });
 
   map.addLayer({
-    id: ${id}-fill,
+    id: `${id}-fill`,
     type: 'fill',
     source: id,
     paint: {
       'fill-color': color,
-      'fill-opacity': [
-        'interpolate', ['linear'], ['zoom'],
-        8, 0.05,
-        10, 0.4,
-        12, 0.8
-      ]
+     'fill-opacity': [
+  'step',
+  ['zoom'],
+  0,     // zoom < 8 → 隱藏
+  8, 0.2,  // zoom 8~10 → 半透明
+  10, 0.5, // zoom 10~12
+  12, 0.8
+]
     }
   });
 
   map.addLayer({
-    id: ${id}-border,
+    id: `${id}-border`,
     type: 'line',
     source: id,
     paint: { 'line-color': '#fff', 'line-width': 1 }
   });
 
-  map.on('click', ${id}-fill, () => focusRegion(id));
-}
-
-function focusRegion(id) {
-  selectedSubRegion = id;
-  subRegions.forEach(file => {
-    const otherId = file.replace('.geojson', '');
-    const opacity = (otherId === id) ? 0.8 : 0;
-    map.setPaintProperty(${otherId}-fill, 'fill-opacity', opacity);
+  map.on('click', `${id}-fill`, e => {
+    const props = e.features[0].properties;
+    new mapboxgl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<h3>${props.region_id || 'Unknown Region'}</h3>`)
+      .addTo(map);
   });
 
-  const bounds = turf.bbox(map.getSource(id)._data);
-  map.fitBounds(bounds, { padding: 40 });
-
-  const center = turf.center(map.getSource(id)._data).geometry.coordinates;
-  new mapboxgl.Popup()
-    .setLngLat(center)
-    .setHTML(<h3>${colorMap[id].label}</h3>)
-    .addTo(map);
-}
-
-function resetSubRegionStyle() {
-  subRegions.forEach(file => {
-    const id = file.replace('.geojson','');
-    map.setPaintProperty(${id}-fill, 'fill-opacity', [
-      'interpolate', ['linear'], ['zoom'],
-      8, 0.05,
-      10, 0.4,
-      12, 0.8
-    ]);
-  });
+  map.on('mouseenter', `${id}-fill`, () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', `${id}-fill`, () => map.getCanvas().style.cursor = '');
 }
 
 function initSidebar() {
   const ul = document.getElementById('region-list');
-  if (!ul) return;
-
   ul.innerHTML = `<li data-id="main-fill">
     <span class="color-block" style="background:#880808"></span> 波爾多總區
   </li>`;
 
-  subRegions.forEach(file => {
-    const id = file.replace('.geojson','');
-    const { color, label } = colorMap[id];
+  subRegions.forEach(filename => {
+    const id = filename.replace('.geojson','');
+    const label = id
+  .replace(/-AOP_Bordeaux_France$/i, '')
+  .replace(/-PDO_Bordeaux_France$/i, '')
+  .replace(/_/g, ' ')
+  .replace(/-/g, ' ');
     ul.innerHTML += `<li data-id="${id}-fill">
-      <span class="color-block" style="background:${color}"></span>
+      <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
       ${label}
     </li>`;
   });
@@ -179,45 +150,41 @@ function initSidebar() {
   ul.querySelectorAll('li').forEach(li => {
     li.addEventListener('click', () => {
       const layer = li.dataset.id;
-      const id = layer.replace('-fill','');
-      if (!map.getSource(id)) return;
-      focusRegion(id);
+      const src = map.getSource(layer.replace('-fill',''));
+      if (!src) return;
+
+      const bounds = turf.bbox(src._data);
+      map.fitBounds(bounds, { padding: 40 });
+
+      // 選擇性：仍可顯示標題 popup，也用 ID
+      const center = turf.center(src._data).geometry.coordinates;
+      new mapboxgl.Popup()
+        .setLngLat(center)
+        .setHTML(`<h3>${layer.replace('-fill','')}</h3>`)
+        .addTo(map);
     });
   });
 }
 
-function initSearchBox() {
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.top = '15px';
-  container.style.left = '270px';
-  container.style.zIndex = '999';
-  container.innerHTML = `
-    <input id="search-box" type="text"
-      placeholder="搜尋產區..."
-      style="padding:6px; font-size:13px; width:180px; border-radius:4px; border:1px solid #ccc;">
-  `;
-  document.body.appendChild(container);
-
-  const input = document.getElementById('search-box');
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      const keyword = e.target.value.trim().toLowerCase();
-      const match = Object.entries(colorMap).find(([id, obj]) =>
-        obj.label.toLowerCase().includes(keyword)
-      );
-      if (match) {
-        const [id] = match;
-        focusRegion(id);
-      } else {
-        alert('找不到符合的產區名稱');
-      }
-    }
-  });
-}
-
-function generateColor(str) {
+// 顏色生成：固定但分散
+function generateColor(id) {
   let hash = 0;
-  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
-  return hsl(${hash % 360}, 65%, 60%);
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${hash % 360}, 60%, 55%)`;
 }
+
+// 側邊欄開關
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('active');
+  map.resize();
+});
+
+// 樣式切換
+document.querySelectorAll('input[name="style"]').forEach(radio => {
+  radio.addEventListener('change', e => {More actions
+    currentStyle = styleMap[e.target.value];
+    loadMap(currentStyle);
+  });
+});
