@@ -46,11 +46,6 @@ const subRegions = [
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
 
-// 用來快取所有 geojson 資料
-const geojsonCache = {};
-
-// 存放每個區塊的顏色
-const colorMap = {};
 let map;
 let selectedSubRegion = null;
 const colorMap = {}; // { id: { color, label } }
@@ -67,20 +62,18 @@ function loadMap() {
 
   map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-  // 點空白處回到主圖
   map.on('click', e => {
     const features = map.queryRenderedFeatures(e.point);
-    const clickedLayer = features.find(f => f.layer.id.endsWith('-fill'));
-    if (!clickedLayer && selectedSubRegion) {
+    const clicked = features.find(f => f.layer.id.endsWith('-fill'));
+    if (!clicked && selectedSubRegion) {
       selectedSubRegion = null;
       resetSubRegionStyle();
-      const bounds = turf.bbox(map.getSource('bordeaux-main')._data);
-      map.fitBounds(bounds, { padding: 40 });
+      const mainBounds = turf.bbox(map.getSource('bordeaux-main')._data);
+      map.fitBounds(mainBounds, { padding: 40 });
     }
   });
 
   map.on('load', async () => {
-    // 主產區
     const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
     map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
     map.addLayer({
@@ -92,16 +85,14 @@ function loadMap() {
 
     map.fitBounds(turf.bbox(mainData), { padding: 40 });
 
-    // 所有子區
     await Promise.all(subRegions.map(loadSubRegion));
-
     initSidebar();
-    initSearch();
+    initSearchBox();
   });
 }
 
-async function loadSubRegion(filename) {
-  const id = filename.replace('.geojson', '');
+async function loadSubRegion(file) {
+  const id = file.replace('.geojson', '');
   const label = id
     .replace(/-AOPBordeauxFrance$/i, '')
     .replace(/-PDOBordeauxFrance$/i, '')
@@ -110,7 +101,7 @@ async function loadSubRegion(filename) {
   const color = generateColor(id);
   colorMap[id] = { color, label };
 
-  const data = await fetch(DATA_BASE + filename).then(r => r.json());
+  const data = await fetch(DATA_BASE + file).then(r => r.json());
   map.addSource(id, { type: 'geojson', data });
 
   map.addLayer({
@@ -127,6 +118,7 @@ async function loadSubRegion(filename) {
       ]
     }
   });
+
   map.addLayer({
     id: ${id}-border,
     type: 'line',
@@ -134,29 +126,25 @@ async function loadSubRegion(filename) {
     paint: { 'line-color': '#fff', 'line-width': 1 }
   });
 
-  map.on('click', ${id}-fill, () => {
-    selectedSubRegion = id;
-    highlightRegion(id);
-    const bounds = turf.bbox(map.getSource(id)._data);
-    map.fitBounds(bounds, { padding: 40 });
-
-    const center = turf.center(map.getSource(id)._data).geometry.coordinates;
-    new mapboxgl.Popup()
-      .setLngLat(center)
-      .setHTML(<h3>${colorMap[id].label}</h3>)
-      .addTo(map);
-  });
+  map.on('click', ${id}-fill, () => focusRegion(id));
 }
 
-function highlightRegion(activeId) {
+function focusRegion(id) {
+  selectedSubRegion = id;
   subRegions.forEach(file => {
-    const id = file.replace('.geojson','');
-    const fillId = ${id}-fill;
-    const opacity = (id === activeId) ? 0.7 : 0;
-    try {
-      map.setPaintProperty(fillId, 'fill-opacity', opacity);
-    } catch (e) {}
+    const otherId = file.replace('.geojson', '');
+    const opacity = (otherId === id) ? 0.8 : 0;
+    map.setPaintProperty(${otherId}-fill, 'fill-opacity', opacity);
   });
+
+  const bounds = turf.bbox(map.getSource(id)._data);
+  map.fitBounds(bounds, { padding: 40 });
+
+  const center = turf.center(map.getSource(id)._data).geometry.coordinates;
+  new mapboxgl.Popup()
+    .setLngLat(center)
+    .setHTML(<h3>${colorMap[id].label}</h3>)
+    .addTo(map);
 }
 
 function resetSubRegionStyle() {
@@ -181,10 +169,10 @@ function initSidebar() {
 
   subRegions.forEach(file => {
     const id = file.replace('.geojson','');
-    const info = colorMap[id];
+    const { color, label } = colorMap[id];
     ul.innerHTML += `<li data-id="${id}-fill">
-      <span class="color-block" style="background:${info.color}"></span>
-      ${info.label}
+      <span class="color-block" style="background:${color}"></span>
+      ${label}
     </li>`;
   });
 
@@ -193,54 +181,36 @@ function initSidebar() {
       const layer = li.dataset.id;
       const id = layer.replace('-fill','');
       if (!map.getSource(id)) return;
-
-      selectedSubRegion = id;
-      highlightRegion(id);
-      const bounds = turf.bbox(map.getSource(id)._data);
-      map.fitBounds(bounds, { padding: 40 });
-
-      const center = turf.center(map.getSource(id)._data).geometry.coordinates;
-      new mapboxgl.Popup()
-        .setLngLat(center)
-        .setHTML(<h3>${colorMap[id].label}</h3>)
-        .addTo(map);
+      focusRegion(id);
     });
   });
 }
 
-function initSearch() {
+function initSearchBox() {
   const container = document.createElement('div');
   container.style.position = 'absolute';
-  container.style.top = '10px';
+  container.style.top = '15px';
   container.style.left = '270px';
   container.style.zIndex = '999';
   container.innerHTML = `
     <input id="search-box" type="text"
-      placeholder="搜尋產區名稱" 
+      placeholder="搜尋產區..."
       style="padding:6px; font-size:13px; width:180px; border-radius:4px; border:1px solid #ccc;">
   `;
   document.body.appendChild(container);
 
-  const box = document.getElementById('search-box');
-  box.addEventListener('keydown', e => {
+  const input = document.getElementById('search-box');
+  input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const keyword = e.target.value.trim().toLowerCase();
-      const match = Object.entries(colorMap).find(([id, info]) =>
-        info.label.toLowerCase().includes(keyword)
+      const match = Object.entries(colorMap).find(([id, obj]) =>
+        obj.label.toLowerCase().includes(keyword)
       );
       if (match) {
-        const [id, info] = match;
-        selectedSubRegion = id;
-        highlightRegion(id);
-        const bounds = turf.bbox(map.getSource(id)._data);
-        map.fitBounds(bounds, { padding: 40 });
-        const center = turf.center(map.getSource(id)._data).geometry.coordinates;
-        new mapboxgl.Popup()
-          .setLngLat(center)
-          .setHTML(<h3>${info.label}</h3>)
-          .addTo(map);
+        const [id] = match;
+        focusRegion(id);
       } else {
-        alert('找不到這個產區名稱');
+        alert('找不到符合的產區名稱');
       }
     }
   });
@@ -248,9 +218,6 @@ function initSearch() {
 
 function generateColor(str) {
   let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const hue = hash % 360;
-  return hsl(${hue}, 60%, 55%);
+  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+  return hsl(${hash % 360}, 65%, 60%);
 }
