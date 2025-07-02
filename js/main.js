@@ -44,51 +44,42 @@ const subRegions = [
   'St-Georges-St-Emilion-AOP_Bordeaux_France.geojson',
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
-// 用來快取所有 geojson 資料
-const geojsonCache = {};
+// 2. 建立地圖
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/satellite-v9',
+  center: [0.0, 44.80],
+  zoom: 8.5
+});
+map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-// 存放每個區塊的顏色
-const colorMap = {};
-let map;
+// 3. 載入主區域並 fitBounds
+map.on('load', async () => {
+  const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
+  map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
 
-loadMap(currentStyle);
-
-// 3. 建立地圖函式
-function loadMap(styleURL) {
-  if (map) map.remove(); // 若已有地圖就移除
-  map = new mapboxgl.Map({
-    container: 'map',
-    style: styleURL,
-    center: [0.0, 44.80],
-    zoom: 8.5
+  map.addLayer({
+    id: 'main-fill',
+    type: 'fill',
+    source: 'bordeaux-main',
+    paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
   });
-  map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-  map.on('load', async () => {
-    const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
-    map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
+  // 自動調整到主區域範圍
+  const bbox = turf.bbox(mainData);
+  map.fitBounds(bbox, { padding: 20 });
 
-    map.addLayer({
-      id: 'main-fill',
-      type: 'fill',
-      source: 'bordeaux-main',
-      paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
-    });
+  // 同步載入子產區
+  await Promise.all(subRegions.map(addSubRegion));
 
-    const bbox = turf.bbox(mainData);
-    map.fitBounds(bbox, { padding: 30 });
+  // 初始化側邊欄
+  initSidebar();
+});
 
-    await Promise.all(subRegions.map(loadSubRegion));
-    initSidebar();
-  });
-}
-
-async function loadSubRegion(filename) {
-  const id = filename.replace('.geojson','');
+// 4. 動態載入並新增子產區圖層
+async function addSubRegion(filename) {
+  const id = filename.replace('.geojson', '');
   const data = await fetch(DATA_BASE + filename).then(r => r.json());
-  const regionId = data.features?.[0]?.properties?.region_id || id;
-  const color = generateColor(id);
-  colorMap[id] = { color, regionId };
 
   map.addSource(id, { type: 'geojson', data });
 
@@ -97,15 +88,13 @@ async function loadSubRegion(filename) {
     type: 'fill',
     source: id,
     paint: {
-      'fill-color': color,
-     'fill-opacity': [
-  'step',
-  ['zoom'],
-  0,     // zoom < 8 → 隱藏
-  8, 0.2,  // zoom 8~10 → 半透明
-  10, 0.5, // zoom 10~12
-  12, 0.8
-]
+      'fill-color': randomColor(id),
+      'fill-opacity': [
+        'case',
+        ['>=', ['zoom'], 9],
+        0.4,
+        0
+      ]
     }
   });
 
@@ -116,75 +105,56 @@ async function loadSubRegion(filename) {
     paint: { 'line-color': '#fff', 'line-width': 1 }
   });
 
+  // 點擊顯示 Popup
   map.on('click', `${id}-fill`, e => {
     const props = e.features[0].properties;
     new mapboxgl.Popup()
       .setLngLat(e.lngLat)
-      .setHTML(`<h3>${props.region_id || 'Unknown Region'}</h3>`)
+      .setHTML(`<h3>${props.name}</h3><p>${props.description}</p>`)
       .addTo(map);
   });
 
-  map.on('mouseenter', `${id}-fill`, () => map.getCanvas().style.cursor = 'pointer');
-  map.on('mouseleave', `${id}-fill`, () => map.getCanvas().style.cursor = '');
+  // 滑鼠樣式
+  map.on('mouseenter', `${id}-fill`, () => {
+    map.getCanvas().style.cursor = 'pointer';
+  });
+  map.on('mouseleave', `${id}-fill`, () => {
+    map.getCanvas().style.cursor = '';
+  });
 }
 
+// 5. 生成側邊欄列表並綁定焦點功能
 function initSidebar() {
-  const ul = document.getElementById('region-list');
-  ul.innerHTML = `<li data-id="main-fill">
-    <span class="color-block" style="background:#880808"></span> 波爾多總區
-  </li>`;
+  const listEl = document.getElementById('region-list');
 
-  subRegions.forEach(filename => {
-    const id = filename.replace('.geojson','');
-    const label = id
-  .replace(/-AOP_Bordeaux_France$/i, '')
-  .replace(/-PDO_Bordeaux_France$/i, '')
-  .replace(/_/g, ' ')
-  .replace(/-/g, ' ');
-    ul.innerHTML += `<li data-id="${id}-fill">
-      <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
-      ${label}
-    </li>`;
+  // 主產區
+  listEl.innerHTML += `<li data-id="main-fill">波爾多總區</li>`;
+
+  // 子產區
+  subRegions.forEach(f => {
+    const id = f.replace('.geojson', '');
+    const label = id.replace(/-/g, ' ');
+    listEl.innerHTML += `<li data-id="${id}-fill">${label}</li>`;
   });
 
-  ul.querySelectorAll('li').forEach(li => {
-    li.addEventListener('click', () => {
-      const layer = li.dataset.id;
-      const src = map.getSource(layer.replace('-fill',''));
-      if (!src) return;
+  listEl.querySelectorAll('li').forEach(item => {
+    item.addEventListener('click', () => {
+      const layer = item.dataset.id;
+      const source = map.getSource(layer.replace('-fill', ''));
+      if (!source) return;
 
-      const bounds = turf.bbox(src._data);
-      map.fitBounds(bounds, { padding: 40 });
-
-      // 選擇性：仍可顯示標題 popup，也用 ID
-      const center = turf.center(src._data).geometry.coordinates;
-      new mapboxgl.Popup()
-        .setLngLat(center)
-        .setHTML(`<h3>${layer.replace('-fill','')}</h3>`)
-        .addTo(map);
+      // 讀取 GeoJSON 計算中心
+      const data = source._data;
+      const center = turf.centerOfMass(data).geometry.coordinates;
+      map.flyTo({ center, zoom: layer === 'main-fill' ? 8.5 : 11 });
     });
   });
 }
 
-// 顏色生成：固定但分散
-function generateColor(id) {
+// 6. 依圖層 ID 產生顏色
+function randomColor(str) {
   let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return `hsl(${hash % 360}, 60%, 55%)`;
+  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+  return `hsl(${hash % 360}, 60%, 50%)`;
 }
 
-// 側邊欄開關
-document.getElementById('toggle-sidebar').addEventListener('click', () => {
-  document.getElementById('sidebar').classList.toggle('active');
-  map.resize();
-});
-
-// 樣式切換
-document.querySelectorAll('input[name="style"]').forEach(radio => {
-  radio.addEventListener('change', e => {
-    currentStyle = styleMap[e.target.value];
-    loadMap(currentStyle);
-  });
-});
