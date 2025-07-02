@@ -44,19 +44,24 @@ const subRegions = [
   'St-Georges-St-Emilion-AOP_Bordeaux_France.geojson',
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
-let map;
-let selectedRegion = null;
+
 const colorMap = {};
-const regionDataList = [];
+let map;
+let selectedSubRegion = null;
+const colorMap = {}; // { id: { color, label } }
 
-// 初始化地圖
-initMap();
+loadMap(currentStyle);
+loadMap();
 
-async function initMap() {
+// 3. 建立地圖函式
+function loadMap(styleURL) {
+  if (map) map.remove(); // 若已有地圖就移除
+function loadMap() {
   map = new mapboxgl.Map({
     container: 'map',
+    style: styleURL,
     style: 'mapbox://styles/mapbox/satellite-v9',
-    center: [0, 44.8],
+    center: [0.0, 44.80],
     zoom: 8.5
   });
 
@@ -64,99 +69,110 @@ async function initMap() {
 
   map.on('click', e => {
     const features = map.queryRenderedFeatures(e.point);
-    const inRegion = features.find(f => f.layer.id.endsWith('-fill'));
-    if (!inRegion && selectedRegion) {
-      selectedRegion = null;
-      resetRegionStyle();
-      const bounds = turf.bbox(map.getSource('bordeaux-main')._data);
-      map.fitBounds(bounds, { padding: 40 });
+    const clicked = features.find(f => f.layer.id.endsWith('-fill'));
+    if (!clicked && selectedSubRegion) {
+      selectedSubRegion = null;
+      resetSubRegionStyle();
+      const mainBounds = turf.bbox(map.getSource('bordeaux-main')._data);
+      map.fitBounds(mainBounds, { padding: 40 });
     }
   });
 
   map.on('load', async () => {
-    // 主區域載入
     const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
     map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
+
     map.addLayer({
       id: 'main-fill',
       type: 'fill',
       source: 'bordeaux-main',
       paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
     });
+
+    const bbox = turf.bbox(mainData);
+    map.fitBounds(bbox, { padding: 30 });
     map.fitBounds(turf.bbox(mainData), { padding: 40 });
 
-    // 預載所有子區域
-    for (const file of subRegions) {
-      const id = file.replace('.geojson', '');
-      const label = formatLabel(id);
-      const geojson = await fetch(DATA_BASE + file).then(r => r.json());
-      const area = turf.area(geojson);
-      const color = generateColor(id);
-
-      regionDataList.push({ id, label, geojson, area, color });
-      colorMap[id] = { label, color };
-    }
-
-    // 面積大→小排列（大的在底層）
-    regionDataList.sort((a, b) => b.area - a.area);
-
-    for (const r of regionDataList) {
-      map.addSource(r.id, { type: 'geojson', data: r.geojson });
-
-      map.addLayer({
-        id: `${r.id}-fill`,
-        type: 'fill',
-        source: r.id,
-        paint: {
-          'fill-color': r.color,
-          'fill-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            8, 0.05,
-            10, 0.4,
-            12, 0.8
-          ]
-        }
-      });
-
-      map.addLayer({
-        id: `${r.id}-border`,
-        type: 'line',
-        source: r.id,
-        paint: { 'line-color': '#fff', 'line-width': 1 }
-      });
-
-      map.on('click', `${r.id}-fill`, () => focusRegion(r.id));
-    }
-
+    await Promise.all(subRegions.map(loadSubRegion));
     initSidebar();
-    initSearch();
+    initSearchBox();
   });
 }
 
-// 點擊產區：高亮並聚焦
-function focusRegion(id) {
-  selectedRegion = id;
+async function loadSubRegion(filename) {
+  const id = filename.replace('.geojson','');
+  const data = await fetch(DATA_BASE + filename).then(r => r.json());
+  const regionId = data.features?.[0]?.properties?.region_id || id;
+async function loadSubRegion(file) {
+  const id = file.replace('.geojson', '');
+  const label = id
+    .replace(/-AOP_Bordeaux_France$/i, '')
+    .replace(/-PDO_Bordeaux_France$/i, '')
+    .replace(/_/g, ' ')
+    .replace(/-/g, ' ');
+  const color = generateColor(id);
+  colorMap[id] = { color, regionId };
+  colorMap[id] = { color, label };
 
-  regionDataList.forEach(r => {
-    const op = r.id === id ? 0.8 : 0;
-    map.setPaintProperty(`${r.id}-fill`, 'fill-opacity', op);
+  const data = await fetch(DATA_BASE + file).then(r => r.json());
+  map.addSource(id, { type: 'geojson', data });
+
+  map.addLayer({
+    id: `${id}-fill`,
+    type: 'fill',
+    source: id,
+    paint: {
+      'fill-color': color,
+      'fill-opacity': ['case', ['>=', ['zoom'], 9], 0.4, 0]
+      'fill-opacity': [
+        'interpolate', ['linear'], ['zoom'],
+        8, 0.05,
+        10, 0.4,
+        12, 0.8
+      ]
+    }
   });
 
-  const src = map.getSource(id);
-  const bounds = turf.bbox(src._data);
-  const center = turf.center(src._data).geometry.coordinates;
+  map.addLayer({
+    id: `${id}-border`,
+    type: 'line',
+    source: id,
+    paint: { 'line-color': '#fff', 'line-width': 1 }
+  });
 
+  map.on('click', `${id}-fill`, e => {
+    const props = e.features[0].properties;
+    new mapboxgl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<h3>${props.region_id || 'Unknown Region'}</h3>`)
+      .addTo(map);
+  map.on('click', `${id}-fill`, () => focusRegion(id));
+}
+
+function focusRegion(id) {
+  selectedSubRegion = id;
+  subRegions.forEach(file => {
+    const otherId = file.replace('.geojson', '');
+    const opacity = (otherId === id) ? 0.8 : 0;
+    map.setPaintProperty(`${otherId}-fill`, 'fill-opacity', opacity);
+  });
+
+  map.on('mouseenter', `${id}-fill`, () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', `${id}-fill`, () => map.getCanvas().style.cursor = '');
+  const bounds = turf.bbox(map.getSource(id)._data);
   map.fitBounds(bounds, { padding: 40 });
+
+  const center = turf.center(map.getSource(id)._data).geometry.coordinates;
   new mapboxgl.Popup()
     .setLngLat(center)
     .setHTML(`<h3>${colorMap[id].label}</h3>`)
     .addTo(map);
 }
 
-// 清除選取，恢復所有透明度
-function resetRegionStyle() {
-  regionDataList.forEach(r => {
-    map.setPaintProperty(`${r.id}-fill`, 'fill-opacity', [
+function resetSubRegionStyle() {
+  subRegions.forEach(file => {
+    const id = file.replace('.geojson','');
+    map.setPaintProperty(`${id}-fill`, 'fill-opacity', [
       'interpolate', ['linear'], ['zoom'],
       8, 0.05,
       10, 0.4,
@@ -165,79 +181,89 @@ function resetRegionStyle() {
   });
 }
 
-// 側邊欄功能
 function initSidebar() {
   const ul = document.getElementById('region-list');
+  ul.innerHTML = `<li data-id="main-fill"><span class="color-block" style="background:#880808"></span> 波爾多總區</li>`;
+  subRegions.forEach(filename => {
+    const id = filename.replace('.geojson','');
+    const info = colorMap[id];
   if (!ul) return;
 
   ul.innerHTML = `<li data-id="main-fill">
     <span class="color-block" style="background:#880808"></span> 波爾多總區
   </li>`;
 
-  regionDataList.forEach(r => {
-    ul.innerHTML += `<li data-id="${r.id}-fill">
-      <span class="color-block" style="background:${r.color}"></span> ${r.label}
+  subRegions.forEach(file => {
+    const id = file.replace('.geojson','');
+    const { color, label } = colorMap[id];
+    ul.innerHTML += `<li data-id="${id}-fill">
+      <span class="color-block" style="background:${info.color}"></span>
+      ${info.regionId}
+      <span class="color-block" style="background:${color}"></span>
+      ${label}
     </li>`;
   });
 
   ul.querySelectorAll('li').forEach(li => {
     li.addEventListener('click', () => {
-      const id = li.dataset.id.replace('-fill', '');
-      if (id === 'main') {
-        selectedRegion = null;
-        resetRegionStyle();
-        const bounds = turf.bbox(map.getSource('bordeaux-main')._data);
-        map.fitBounds(bounds, { padding: 40 });
-      } else {
-        focusRegion(id);
-      }
+      const layer = li.dataset.id;
+      const src = map.getSource(layer.replace('-fill',''));
+      if (!src) return;
+      const bounds = turf.bbox(src._data);
+      map.fitBounds(bounds, { padding: 40 });
+
+      setTimeout(() => {
+        const center = turf.center(src._data).geometry.coordinates;
+        new mapboxgl.Popup()
+          .setLngLat(center)
+          .setHTML(`<h3>${colorMap[layer.replace('-fill','')].regionId}</h3>`)
+          .addTo(map);
+      }, 500);
+      const id = layer.replace('-fill','');
+      if (!map.getSource(id)) return;
+      focusRegion(id);
     });
   });
 }
 
-// 搜尋產區
-function initSearch() {
-  const wrapper = document.createElement('div');
-  wrapper.style.position = 'absolute';
-  wrapper.style.top = '15px';
-  wrapper.style.left = '270px';
-  wrapper.style.zIndex = '1000';
-  wrapper.innerHTML = `
+// 顏色生成：固定但分散
+function generateColor(id) {
+function initSearchBox() {
+  const container = document.createElement('div');
+  container.style.position = 'absolute';
+  container.style.top = '15px';
+  container.style.left = '270px';
+  container.style.zIndex = '999';
+  container.innerHTML = `
     <input id="search-box" type="text"
       placeholder="搜尋產區..."
       style="padding:6px; font-size:13px; width:180px; border-radius:4px; border:1px solid #ccc;">
   `;
-  document.body.appendChild(wrapper);
+  document.body.appendChild(container);
 
-  const box = document.getElementById('search-box');
-  box.addEventListener('keydown', e => {
+  const input = document.getElementById('search-box');
+  input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
       const keyword = e.target.value.trim().toLowerCase();
-      const match = regionDataList.find(r =>
-        r.label.toLowerCase().includes(keyword)
+      const match = Object.entries(colorMap).find(([id, obj]) =>
+        obj.label.toLowerCase().includes(keyword)
       );
       if (match) {
-        focusRegion(match.id);
+        const [id] = match;
+        focusRegion(id);
       } else {
-        alert('找不到相符的產區');
+        alert('找不到符合的產區名稱');
       }
     }
   });
 }
 
-// 工具函式
-function formatLabel(str) {
-  return str
-    .replace(/-AOP_Bordeaux_France$/i, '')
-    .replace(/-PDO_Bordeaux_France$/i, '')
-    .replace(/_/g, ' ')
-    .replace(/-/g, ' ');
-}
-
 function generateColor(str) {
   let hash = 0;
-  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${hash % 360}, 60%,
+  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);Add commentMore actions
   return `hsl(${hash % 360}, 65%, 60%)`;
 }
-
-
