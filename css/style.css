@@ -15,7 +15,7 @@ body {
   position: relative;
 }
 
-/* 側邊欄樣式 */
+/* 側邊欄 */
 #sidebar {
   width: 250px;
   background: rgba(255, 255, 255, 0.95);
@@ -58,11 +58,10 @@ body {
   align-items: center;
   margin: 6px 0;
   cursor: pointer;
-  transition: background 0.2s;
 }
 
 #region-list li:hover {
-  background: #f5f5f5;
+  background: #f3f3f3;
 }
 
 #region-list .color-block {
@@ -72,30 +71,31 @@ body {
   border: 1px solid #999;
 }
 
-/* 搜尋框樣式（已由 JS 動態插入） */
 #search-box {
+  position: absolute;
+  top: 15px;
+  left: 270px;
+  z-index: 999;
   padding: 6px;
-  font-size: 13px;
   width: 180px;
+  font-size: 13px;
   border-radius: 4px;
   border: 1px solid #ccc;
 }
 
-/* 手機裝置 RWD */
+/* 手機響應 */
 @media screen and (max-width: 600px) {
   #sidebar {
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 999;
+    z-index: 1000;
     transform: translateX(-100%);
+    top: 0;
+    left: 0;
+    height: 100%;
   }
-
   #sidebar.active {
     transform: translateX(0);
   }
-
   #toggle-sidebar {
     left: 10px;
     right: auto;
