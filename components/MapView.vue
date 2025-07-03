@@ -15,7 +15,7 @@ mapboxgl.accessToken = 'pk.eyJ1IjoiY2h1bmdzaHVsZWUiLCJhIjoiY21ja3B0NHBzMDBxMzJpc
 onMounted(() => {
   map = new mapboxgl.Map({
     container: mapContainer.value,
-    style: 'mapbox://styles/mapbox/light-v10',
+    style: 'mapbox://styles/mapbox/satellite-v9',
     center: [ -0.57918, 44.837789 ],
     zoom: 9
   });
