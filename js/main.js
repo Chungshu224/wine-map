@@ -13,11 +13,14 @@ const subRegions = [
   'Barsac-AOP_Bordeaux_France.geojson',
   'Blaye-AOP_Bordeaux_France.geojson',
   'Bordeaux-AOP_Bordeaux_France.geojson',
+  'Bordeaux-Superior-AOP_Bordeaux_France.geojson',
   'Canon-Fronsac-AOP_Bordeaux_France.geojson',
   'Cerons-AOP_Bordeaux_France.geojson',
   'Cotes-de-Blaye-AOP_Bordeaux_France.geojson',
+  'Cotes-de-Bordeaux-PDO_Bordeaux_France.geojson',
   'Cotes-de-Bordeaux-St-Macaire-PDO_Bordeaux_France.geojson',
   'Cotes-de-Bourg-AOP_Bordeaux_France.geojson',
+  'Cremant-de-Bordeaux-AOP_Bordeaux_France.geojson',
   'Entre-Deux-Mers-AOP_Bordeaux_France.geojson',
   'Fronsac-AOP_Bordeaux_France.geojson',
   'Graves-AOP_Bordeaux_France.geojson',
@@ -45,38 +48,30 @@ const subRegions = [
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
 
-let map;
-let selectedRegion = null;
+// 用來快取所有 geojson 資料
+const geojsonCache = {};
+
+// 存放每個區塊的顏色
 const colorMap = {};
-const regionDataList = [];
+let map;
 
-initMap();
+loadMap(currentStyle);
 
-async function initMap() {
+// 3. 建立地圖函式
+function loadMap(styleURL) {
+  if (map) map.remove(); // 若已有地圖就移除
   map = new mapboxgl.Map({
     container: 'map',
-    style: 'mapbox://styles/mapbox/satellite-v9',
-    center: [0, 44.8],
+    style: styleURL,
+    center: [0.0, 44.80],
     zoom: 8.5
   });
-
   map.addControl(new mapboxgl.NavigationControl(), 'top-left');
 
-  map.on('click', e => {
-    const features = map.queryRenderedFeatures(e.point);
-    const clicked = features.find(f => f.layer.id.endsWith('-fill'));
-    if (!clicked && selectedRegion) {
-      selectedRegion = null;
-      resetRegionStyle();
-      const bounds = turf.bbox(map.getSource('bordeaux-main')._data);
-      map.fitBounds(bounds, { padding: 40 });
-    }
-  });
-
   map.on('load', async () => {
-    // 主區載入
     const mainData = await fetch(DATA_BASE + mainGeoJSON).then(r => r.json());
     map.addSource('bordeaux-main', { type: 'geojson', data: mainData });
+
     map.addLayer({
       id: 'main-fill',
       type: 'fill',
@@ -84,153 +79,124 @@ async function initMap() {
       paint: { 'fill-color': '#880808', 'fill-opacity': 0.1 }
     });
 
-    map.fitBounds(turf.bbox(mainData), { padding: 40 });
+    const bbox = turf.bbox(mainData);
+    map.fitBounds(bbox, { padding: 30 });
 
-    // 預載全部子區資料
-    for (const file of subRegions) {
-      const id = file.replace('.geojson', '');
-      const label = formatLabel(id);
-      const color = generateColor(id);
-      const geojson = await fetch(DATA_BASE + file).then(r => r.json());
-      const area = turf.area(geojson);
-      regionDataList.push({ id, label, geojson, area, color });
-      colorMap[id] = { color, label };
-    }
-
-    // 面積由大排到小（大→底層）
-    regionDataList.sort((a, b) => b.area - a.area);
-
-    // 建立圖層
-    for (const r of regionDataList) {
-      map.addSource(r.id, { type: 'geojson', data: r.geojson });
-      map.addLayer({
-        id: `${r.id}-fill`,
-        type: 'fill',
-        source: r.id,
-        paint: {
-          'fill-color': r.color,
-          'fill-opacity': [
-            'interpolate', ['linear'], ['zoom'],
-            8, 0.05,
-            10, 0.4,
-            12, 0.8
-          ]
-        }
-      });
-      map.addLayer({
-        id: `${r.id}-border`,
-        type: 'line',
-        source: r.id,
-        paint: { 'line-color': '#fff', 'line-width': 1 }
-      });
-      map.on('click', `${r.id}-fill`, () => focusRegion(r.id));
-    }
-
+    await Promise.all(subRegions.map(loadSubRegion));
     initSidebar();
-    initSearch();
-    initSidebarToggle();
   });
 }
 
-// 點選某個產區
-function focusRegion(id) {
-  selectedRegion = id;
-  regionDataList.forEach(r => {
-    const opacity = (r.id === id) ? 0.8 : 0;
-    map.setPaintProperty(`${r.id}-fill`, 'fill-opacity', opacity);
+async function loadSubRegion(filename) {
+  const id = filename.replace('.geojson','');
+  const data = await fetch(DATA_BASE + filename).then(r => r.json());
+  const regionId = data.features?.[0]?.properties?.region_id || id;
+  const color = generateColor(id);
+  colorMap[id] = { color, regionId };
+
+  map.addSource(id, { type: 'geojson', data });
+
+  map.addLayer({
+    id: `${id}-fill`,
+    type: 'fill',
+    source: id,
+    paint: {
+      'fill-color': color,
+     'fill-opacity': [
+  'step',
+  ['zoom'],
+  0,     // zoom < 8 → 隱藏
+  8, 0.2,  // zoom 8~10 → 半透明
+  10, 0.5, // zoom 10~12
+  12, 0.8
+]
+    }
   });
-  const bounds = turf.bbox(map.getSource(id)._data);
-  const center = turf.center(map.getSource(id)._data).geometry.coordinates;
-  map.fitBounds(bounds, { padding: 40 });
-  new mapboxgl.Popup()
-    .setLngLat(center)
-    .setHTML(`<h3>${colorMap[id].label}</h3>`)
-    .addTo(map);
+
+  map.addLayer({
+    id: `${id}-border`,
+    type: 'line',
+    source: id,
+    paint: { 'line-color': '#fff', 'line-width': 1 }
+  });
+
+  map.on('click', `${id}-fill`, e => {
+    const props = e.features[0].properties;
+    new mapboxgl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<h3>${props.region_id || 'Unknown Region'}</h3>`)
+      .addTo(map);
+  });
+
+  map.on('mouseenter', `${id}-fill`, () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', `${id}-fill`, () => map.getCanvas().style.cursor = '');
 }
 
-// 回復全部子區透明度
-function resetRegionStyle() {
-  regionDataList.forEach(r => {
-    map.setPaintProperty(`${r.id}-fill`, 'fill-opacity', [
-      'interpolate', ['linear'], ['zoom'],
-      8, 0.05,
-      10, 0.4,
-      12, 0.8
-    ]);
-  });
-}
-
-// 初始化列表
 function initSidebar() {
-   const input = document.createElement('input');
-  input.id = 'search-box';
-  input.type = 'text';
-  input.placeholder = '搜尋產區...';
-  // 建議改成
   const ul = document.getElementById('region-list');
-  const sidebar = document.getElementById('sidebar');
-  sidebar.insertBefore(input, sidebar.children[2]); // 放在標題下
-
+  ul.innerHTML = `<li data-id="main-fill"><span class="color-block" style="background:#880808"></span> 波爾多總區</li>`;
   ul.innerHTML = `<li data-id="main-fill">
     <span class="color-block" style="background:#880808"></span> 波爾多總區
   </li>`;
 
-  regionDataList.forEach(r => {
-    ul.innerHTML += `<li data-id="${r.id}-fill">
-      <span class="color-block" style="background:${r.color}"></span> ${r.label}
+  subRegions.forEach(filename => {
+    const id = filename.replace('.geojson','');
+    const info = colorMap[id];
+    const label = id.replace(/-/g, ' '); // 或保留完整檔名也行
+    ul.innerHTML += `<li data-id="${id}-fill">
+      <span class="color-block" style="background:${info.color}"></span>
+      ${info.regionId}
+      <span class="color-block" style="background:${colorMap[id]?.color || '#999'}"></span>
+      ${label}
     </li>`;
   });
 
   ul.querySelectorAll('li').forEach(li => {
     li.addEventListener('click', () => {
-      const id = li.dataset.id.replace('-fill','');
-      if (id === 'main') {
-        selectedRegion = null;
-        resetRegionStyle();
-        const bounds = turf.bbox(map.getSource('bordeaux-main')._data);
-        map.fitBounds(bounds, { padding: 40 });
-      } else {
-        focusRegion(id);
-      }
+      const layer = li.dataset.id;
+      const src = map.getSource(layer.replace('-fill',''));
+      if (!src || !src._data) return;
+      if (!src) return;
+
+      const bounds = turf.bbox(src._data);
+      map.fitBounds(bounds, { padding: 40 });
+
+      setTimeout(() => {
+        const center = turf.center(src._data).geometry.coordinates;
+        new mapboxgl.Popup()
+          .setLngLat(center)
+          .setHTML(`<h3>${colorMap[layer.replace('-fill','')].regionId}</h3>`)
+          .addTo(map);
+      }, 500);
+      // 選擇性：仍可顯示標題 popup，也用 ID
+      const center = turf.center(src._data).geometry.coordinates;
+      new mapboxgl.Popup()
+        .setLngLat(center)
+        .setHTML(`<h3>${layer.replace('-fill','')}</h3>`)
+        .addTo(map);
     });
   });
 }
 
-  input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      const q = input.value.trim().toLowerCase();
-      const match = regionDataList.find(r => r.label.toLowerCase().includes(q));
-      if (match) {
-        focusRegion(match.id);
-      } else {
-        alert('找不到對應產區');
-      }
-    }
-  });
-}
-
-// 側邊欄收合控制
-function initSidebarToggle() {
-  const btn = document.getElementById('toggle-sidebar');
-  const sb = document.getElementById('sidebar');
-  btn.addEventListener('click', () => {
-    sb.classList.toggle('collapsed');
-    map.resize();
-  });
-}
-
-// 命名轉換與顏色工具
-function formatLabel(id) {
-  return id
-    .replace(/-AOP_Bordeaux_France$/i, '')
-    .replace(/-PDO_Bordeaux_France$/i, '')
-    .replace(/_/g, ' ')
-    .replace(/-/g, ' ');
-}
-
-function generateColor(str) {
+// 顏色生成：固定但分散
+function generateColor(id) {
   let hash = 0;
-  for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);
-  return `hsl(${hash % 360}, 65%, 60%)`;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return `hsl(${hash % 360}, 60%, 55%)`;
 }
 
+// 側邊欄開關
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('active');
+  map.resize();
+});
+
+// 樣式切換
+document.querySelectorAll('input[name="style"]').forEach(radio => {
+  radio.addEventListener('change', e => {
+    currentStyle = styleMap[e.target.value];
+    loadMap(currentStyle);
+  });
+});
