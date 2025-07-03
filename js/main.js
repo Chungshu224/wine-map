@@ -267,3 +267,7 @@ function generateColor(str) {
   for (let c of str) hash = c.charCodeAt(0) + ((hash << 5) - hash);Add commentMore actions
   return `hsl(${hash % 360}, 65%, 60%)`;
 }
+document.getElementById('toggle-sidebar').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+  map.resize(); // 重新調整地圖尺寸
+});
