@@ -6,7 +6,7 @@
 import { onMounted, ref } from 'vue';
 import mapboxgl from 'mapbox-gl';
 import AOCPolygon from './AOCPolygon.vue';
-
+const selectedAOC = ref(null);
 const mapContainer = ref(null);
 let map;
 
