@@ -162,8 +162,13 @@ function resetRegionStyle() {
 
 // 初始化列表
 function initSidebar() {
-  const ul = document.getElementById('region-list');
-  if (!ul) return;
+   const input = document.createElement('input');
+  input.id = 'search-box';
+  input.type = 'text';
+  input.placeholder = '搜尋產區...';
+  // 建議改成
+  const sidebar = document.getElementById('sidebar');
+  sidebar.insertBefore(input, sidebar.children[2]); // 放在標題下
 
   ul.innerHTML = `<li data-id="main-fill">
     <span class="color-block" style="background:#880808"></span> 波爾多總區
