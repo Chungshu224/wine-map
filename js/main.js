@@ -45,14 +45,6 @@ const subRegions = [
   'St-Julien-AOP_Bordeaux_France.geojson'
 ];
 
-const colorMap = {};
-let map;
-let selectedSubRegion = null;
-const colorMap = {}; // { id: { color, label } }
-
-loadMap(currentStyle);
-loadMap();
-
 // 3. 建立地圖函式
 function loadMap(styleURL) {
   if (map) map.remove(); // 若已有地圖就移除
