@@ -167,6 +167,7 @@ function initSidebar() {
   input.type = 'text';
   input.placeholder = '搜尋產區...';
   // 建議改成
+  const ul = document.getElementById('region-list');
   const sidebar = document.getElementById('sidebar');
   sidebar.insertBefore(input, sidebar.children[2]); // 放在標題下
 
@@ -194,14 +195,6 @@ function initSidebar() {
     });
   });
 }
-
-// 搜尋產區
-function initSearch() {
-  const input = document.createElement('input');
-  input.id = 'search-box';
-  input.type = 'text';
-  input.placeholder = '搜尋產區...';
-  document.body.appendChild(input);
 
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') {
