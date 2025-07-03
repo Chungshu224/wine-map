@@ -1,7 +1,7 @@
 <template>
   <div ref="mapContainer" class="map-container"></div>
 </template>
-
+<Sidebar :aoc="selectedAOC" @close="selectedAOC = null" />
 <script setup>
 import { onMounted, ref } from 'vue';
 import mapboxgl from 'mapbox-gl';
